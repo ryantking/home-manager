@@ -126,20 +126,48 @@ in
     users.users = mkIf cfg.useUserPackages (
       mapAttrs (username: usercfg: {
         packages = [ usercfg.home.path ];
+
+        launchd.agents."home-manager-${username}" = let
+          # hmSetupEnv = pkgs.writeScript "hm-setup-env" ''
+          #   echo Activating home-manager configuration for ${username}
+          #   sudo -u ${username} -s --set-home ${pkgs.writeShellScript "activation-${username}" ''
+          #     ${lib.optionalString (cfg.backupFileExtension != null)
+          #       "export HOME_MANAGER_BACKUP_EXT=${lib.escapeShellArg cfg.backupFileExtension}"}
+          #     ${lib.optionalString cfg.verbose "export VERBOSE=1"}
+          #     exec ${usercfg.home.activationPackage}/activate
+          #   ''}
+          # '';
+        in { # TODO(ryantking): probably should esca
+          enable = true;
+          config = {
+            ProcessType = "Adaptive";
+            # ProgramArguments = [ "${hmSetupEnv}" ];
+          };
+        };
       }) cfg.users
     );
 
     environment.pathsToLink = mkIf cfg.useUserPackages [ "/etc/profile.d" ];
 
-    system.activationScripts.postActivation.text =
-      concatStringsSep "\n" (mapAttrsToList (username: usercfg: ''
-        echo Activating home-manager configuration for ${username}
-        sudo -u ${username} -s --set-home ${pkgs.writeShellScript "activation-${username}" ''
-          ${lib.optionalString (cfg.backupFileExtension != null)
-            "export HOME_MANAGER_BACKUP_EXT=${lib.escapeShellArg cfg.backupFileExtension}"}
-          ${lib.optionalString cfg.verbose "export VERBOSE=1"}
-          exec ${usercfg.home.activationPackage}/activate
-        ''}
-      '') cfg.users);
+    # launchd.agents = mapAttrs' (_: usercfg:
+    #   let
+    #     username = usercfg.home.username;
+
+    #     hmSetupEnv = pkgs.writeScript "hm-setup-env" ''
+    #       echo Activating home-manager configuration for ${username}
+    #       sudo -u ${username} -s --set-home ${pkgs.writeShellScript "activation-${username}" ''
+    #         ${lib.optionalString (cfg.backupFileExtension != null)
+    #           "export HOME_MANAGER_BACKUP_EXT=${lib.escapeShellArg cfg.backupFileExtension}"}
+    #         ${lib.optionalString cfg.verbose "export VERBOSE=1"}
+    #         exec ${usercfg.home.activationPackage}/activate
+    #       ''}
+    #     '';
+    #   in nameValuePair ("home-manager-${username}") { # TODO(ryantking): probably should esca
+    #     enable = true;
+    #     config = {
+    #       ProcessType = "Adaptive";
+    #       ProgramArguments = [ "${hmSetupEnv}" ];
+    #     };
+    #   }) cfg.users;
   };
 }
